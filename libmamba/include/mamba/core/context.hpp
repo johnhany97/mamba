@@ -99,6 +99,7 @@ namespace mamba
     enum class AuthenticationType
     {
         kBasicHTTPAuthentication,
+        kBearerToken,
         kCondaToken
     };
 
@@ -165,7 +166,6 @@ namespace mamba
             std::string caller_version{ "" };
             std::string conda_version{ "3.8.0" };
             std::string current_command{ "mamba" };
-            std::string custom_banner{ "" };
             bool is_micromamba{ false };
         };
 

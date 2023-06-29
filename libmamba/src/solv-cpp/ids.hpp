@@ -15,9 +15,22 @@ namespace mamba::solv
     using DependencyId = ::Id;
     using RepoId = ::Id;
     using SolvableId = ::Id;
+    using RuleId = ::Id;
+    using ProblemId = ::Id;
+    using DependencyMarker = ::Id;
 
     using RelationFlag = int;
     using DistType = int;
+    using SolverFlag = int;
+    using TransactionOrderFlag = int;
+    using TransactionStepType = int;
+    using TransactionMode = int;
+
+    enum struct LoopControl
+    {
+        Continue,
+        Break
+    };
 }
 
 #endif

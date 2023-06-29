@@ -7,6 +7,7 @@
 #include "mamba/api/channel_loader.hpp"
 #include "mamba/api/configuration.hpp"
 #include "mamba/api/update.hpp"
+#include "mamba/core/channel.hpp"
 #include "mamba/core/context.hpp"
 #include "mamba/core/pinning.hpp"
 #include "mamba/core/transaction.hpp"
@@ -15,10 +16,9 @@
 
 namespace mamba
 {
-    void update(bool update_all, bool prune)
+    void update(Configuration& config, bool update_all, bool prune)
     {
         auto& ctx = Context::instance();
-        auto& config = Configuration::instance();
 
         config.at("use_target_prefix_fallback").set_value(true);
         config.at("target_prefix_checks")
@@ -30,10 +30,12 @@ namespace mamba
 
         auto update_specs = config.at("specs").value<std::vector<std::string>>();
 
+        ChannelContext channel_context;
+
         // add channels from specs
         for (const auto& s : update_specs)
         {
-            if (auto m = MatchSpec{ s }; !m.channel.empty())
+            if (auto m = MatchSpec{ s, channel_context }; !m.channel.empty())
             {
                 ctx.channels.push_back(m.channel);
             }
@@ -41,7 +43,7 @@ namespace mamba
 
         int solver_flag = SOLVER_UPDATE;
 
-        MPool pool;
+        MPool pool{ channel_context };
         MultiPackageCache package_caches(ctx.pkgs_dirs);
 
         auto exp_loaded = load_channels(pool, package_caches, 0);
@@ -50,7 +52,7 @@ namespace mamba
             throw std::runtime_error(exp_loaded.error().what());
         }
 
-        auto exp_prefix_data = PrefixData::create(ctx.prefix_params.target_prefix);
+        auto exp_prefix_data = PrefixData::create(ctx.prefix_params.target_prefix, channel_context);
         if (!exp_prefix_data)
         {
             // TODO: propagate tl::expected mechanism
@@ -147,7 +149,5 @@ namespace mamba
 
         MTransaction transaction(pool, solver, package_caches);
         execute_transaction(transaction);
-
-        config.operation_teardown();
     }
 }

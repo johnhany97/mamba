@@ -7,103 +7,30 @@
 #ifndef MAMBA_CORE_TRANSACTION_HPP
 #define MAMBA_CORE_TRANSACTION_HPP
 
-#include <future>
 #include <memory>
 #include <set>
 #include <string>
 #include <tuple>
 #include <vector>
 
-#include <nlohmann/json.hpp>
-#include <solv/transaction.h>
-
 #include "mamba/api/install.hpp"
 
-#include "env_lockfile.hpp"
-#include "fetch.hpp"
 #include "mamba_fs.hpp"
 #include "match_spec.hpp"
 #include "package_cache.hpp"
-#include "package_handling.hpp"
 #include "prefix_data.hpp"
-#include "progress_bar.hpp"
-#include "repo.hpp"
 #include "solver.hpp"
-#include "thread_utils.hpp"
 #include "transaction_context.hpp"
 
+namespace mamba::solv
+{
+    class ObjTransaction;
+    class ObjSolvableViewConst;
+}
 
 namespace mamba
 {
-    class PackageDownloadExtractTarget
-    {
-    public:
-
-        PackageDownloadExtractTarget(const PackageInfo& pkg_info);
-
-        void write_repodata_record(const fs::u8path& base_path);
-        void add_url();
-        bool finalize_callback(const DownloadTarget& target);
-        bool finished();
-        void validate();
-        bool extract();
-        bool extract_from_cache();
-        bool validate_extract();
-        const std::string& name() const;
-        std::size_t expected_size() const;
-        auto validation_result() const;
-        void clear_cache() const;
-
-        DownloadTarget* target(MultiPackageCache& cache);
-
-        enum VALIDATION_RESULT
-        {
-            UNDEFINED = 0,
-            VALID = 1,
-            SHA256_ERROR,
-            MD5SUM_ERROR,
-            SIZE_ERROR,
-            EXTRACT_ERROR
-        };
-
-        std::exception m_decompress_exception;
-
-    private:
-
-        bool m_finished;
-        PackageInfo m_package_info;
-
-        std::string m_sha256, m_md5;
-        std::size_t m_expected_size;
-
-        bool m_has_progress_bars = false;
-        ProgressProxy m_download_bar, m_extract_bar;
-        std::unique_ptr<DownloadTarget> m_target;
-
-        std::string m_url, m_name, m_filename;
-        fs::u8path m_tarball_path, m_cache_path;
-
-        std::future<bool> m_extract_future;
-
-        VALIDATION_RESULT m_validation_result = VALIDATION_RESULT::UNDEFINED;
-
-        std::function<void(ProgressBarRepr&)> extract_repr();
-        std::function<void(ProgressProxy&)> extract_progress_callback();
-    };
-
-    class DownloadExtractSemaphore
-    {
-    public:
-
-        static std::ptrdiff_t get_max();
-        static void set_max(int value);
-
-    private:
-
-        static counting_semaphore semaphore;
-
-        friend class PackageDownloadExtractTarget;
-    };
+    class ChannelContext;
 
     class MTransaction
     {
@@ -139,7 +66,6 @@ namespace mamba
         using to_specs_type = std::tuple<std::vector<std::string>, std::vector<std::string>>;
         using to_conda_type = std::tuple<to_specs_type, to_install_type, to_remove_type>;
 
-        void init();
         to_conda_type to_conda();
         void log_json();
         bool fetch_extract_packages();
@@ -147,7 +73,6 @@ namespace mamba
         bool prompt();
         void print();
         bool execute(PrefixData& prefix);
-        bool filter(Solvable* s);
 
         std::pair<std::string, std::string> find_python_version();
 
@@ -161,14 +86,22 @@ namespace mamba
         TransactionContext m_transaction_context;
         MultiPackageCache m_multi_cache;
         const fs::u8path m_cache_path;
-        std::vector<Solvable*> m_to_install, m_to_remove;
+        std::vector<solv::ObjSolvableViewConst> m_to_install;
+        std::vector<solv::ObjSolvableViewConst> m_to_remove;
 
-        History::UserRequest m_history_entry;
-        Transaction* m_transaction;
+        History::UserRequest m_history_entry = History::UserRequest::prefilled();
+        // Temporarily using Pimpl for encapsulation
+        std::unique_ptr<solv::ObjTransaction> m_transaction;
 
         std::vector<MatchSpec> m_requested_specs;
 
         bool m_force_reinstall = false;
+
+        void init();
+        bool filter(const solv::ObjSolvableViewConst& s);
+
+        auto trans() -> solv::ObjTransaction&;
+        auto trans() const -> const solv::ObjTransaction&;
     };
 
     MTransaction create_explicit_transaction_from_urls(

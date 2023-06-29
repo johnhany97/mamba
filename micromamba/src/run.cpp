@@ -134,9 +134,9 @@ set_ps_command(CLI::App* subcom)
 }
 
 void
-set_run_command(CLI::App* subcom)
+set_run_command(CLI::App* subcom, Configuration& config)
 {
-    init_prefix_options(subcom);
+    init_prefix_options(subcom, config);
 
     static std::string streams;
     CLI::Option* stream_option = subcom
@@ -176,10 +176,8 @@ set_run_command(CLI::App* subcom)
     static reproc::process proc;
 
     subcom->callback(
-        [subcom, stream_option]()
+        [&config, subcom, stream_option]()
         {
-            auto& config = Configuration::instance();
-            config.at("show_banner").set_value(false);
             config.load();
 
             std::vector<std::string> command = subcom->remaining();
@@ -211,7 +209,18 @@ set_run_command(CLI::App* subcom)
                 stream_options |= (sinkin ? 0 : static_cast<int>(STREAM_OPTIONS::SINKIN));
             }
 
+            auto const get_prefix = [&]()
+            {
+                auto& ctx = Context::instance();
+                if (auto prefix = ctx.prefix_params.target_prefix; !prefix.empty())
+                {
+                    return prefix;
+                }
+                return ctx.prefix_params.root_prefix;
+            };
+
             int exit_code = mamba::run_in_environment(
+                get_prefix(),
                 command,
                 cwd,
                 stream_options,

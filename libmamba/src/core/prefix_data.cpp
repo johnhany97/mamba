@@ -4,8 +4,10 @@
 //
 // The full license is in the file LICENSE, distributed with this software.
 
+#include <array>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 
 #include "mamba/core/output.hpp"
 #include "mamba/core/prefix_data.hpp"
@@ -15,11 +17,12 @@
 
 namespace mamba
 {
-    auto PrefixData::create(const fs::u8path& prefix_path) -> expected_t<PrefixData>
+    auto PrefixData::create(const fs::u8path& prefix_path, ChannelContext& channel_context)
+        -> expected_t<PrefixData>
     {
         try
         {
-            return PrefixData(prefix_path);
+            return PrefixData(prefix_path, channel_context);
         }
         catch (std::exception& e)
         {
@@ -35,9 +38,10 @@ namespace mamba
         }
     }
 
-    PrefixData::PrefixData(const fs::u8path& prefix_path)
-        : m_history(prefix_path)
+    PrefixData::PrefixData(const fs::u8path& prefix_path, ChannelContext& channel_context)
+        : m_history(prefix_path, channel_context)
         , m_prefix_path(prefix_path)
+        , m_channel_context(channel_context)
     {
         load();
     }
@@ -95,13 +99,34 @@ namespace mamba
                 for (const auto& dep : record->depends)
                 {
                     // Creating a matchspec to parse the name (there may be a channel)
-                    auto ms = MatchSpec(dep);
+                    auto ms = MatchSpec{ dep, m_channel_context };
                     // Ignoring unmatched dependencies, the environment could be broken
                     // or it could be a matchspec
                     const auto from_iter = name_to_node_id.find(ms.name);
                     if (from_iter != name_to_node_id.cend())
                     {
-                        dep_graph.add_edge(to_id, from_iter->second);
+                        dep_graph.add_edge(from_iter->second, to_id);
+                    }
+                }
+            }
+
+            // Flip known problematic edges.
+            // This is made to adress cycles but there is no straightforward way to make
+            // a generic cycle handler so we instead force flip the given edges
+            static constexpr auto edges_to_flip = std::array{ std::pair{ "pip", "python" } };
+            for (const auto& [from, to] : edges_to_flip)
+            {
+                const auto from_iter = name_to_node_id.find(from);
+                const auto to_iter = name_to_node_id.find(to);
+                const auto end_iter = name_to_node_id.cend();
+                if ((from_iter != end_iter) && (to_iter != end_iter))
+                {
+                    const auto from_id = from_iter->second;
+                    const auto to_id = to_iter->second;
+                    if (dep_graph.has_edge(from_id, to_id))
+                    {
+                        dep_graph.remove_edge(from_id, to_id);
+                        dep_graph.add_edge(to_id, from_id);  // safe if edge already exeists
                     }
                 }
             }

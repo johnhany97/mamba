@@ -7,6 +7,7 @@
 #include <array>
 #include <cassert>
 #include <charconv>
+#include <cstdint>
 #include <limits>
 
 #include <solv/knownid.h>
@@ -348,44 +349,39 @@ namespace mamba::solv
         return set_subdir(str.c_str());
     }
 
-    auto ObjSolvableViewConst::dependencies() const -> ObjQueue
+    auto ObjSolvableViewConst::dependencies(DependencyMarker marker) const -> ObjQueue
+    {
+        auto q = ObjQueue{};
+        ::solvable_lookup_deparray(const_cast<::Solvable*>(raw()), SOLVABLE_REQUIRES, q.raw(), marker);
+        return q;
+    }
+
+    void ObjSolvableView::set_dependencies(const ObjQueue& q, DependencyMarker marker) const
+    {
+        ::solvable_set_deparray(raw(), SOLVABLE_REQUIRES, const_cast<::Queue*>(q.raw()), marker);
+    }
+
+    void ObjSolvableView::add_dependency(DependencyId dep, DependencyMarker marker) const
+    {
+        raw()->requires = ::repo_addid_dep(raw()->repo, raw()->requires, dep, marker);
+    }
+
+    auto ObjSolvableViewConst::provides() const -> ObjQueue
     {
         auto q = ObjQueue{};
         ::solvable_lookup_deparray(
             const_cast<::Solvable*>(raw()),
-            SOLVABLE_REQUIRES,
+            SOLVABLE_PROVIDES,
             q.raw(),
             /* marker= */ -1
         );
         return q;
     }
 
-    void ObjSolvableView::set_dependencies(const ObjQueue& q) const
-    {
-        ::solvable_set_deparray(
-            const_cast<::Solvable*>(raw()),
-            SOLVABLE_REQUIRES,
-            const_cast<::Queue*>(q.raw()),
-            /* marker= */ 0
-        );
-    }
-
-    void ObjSolvableView::add_dependency(DependencyId dep) const
-    {
-        raw()->requires = ::repo_addid_dep(raw()->repo, raw()->requires, dep, /* marker= */ 0);
-    }
-
-    auto ObjSolvableViewConst::provides() const -> ObjQueue
-    {
-        auto q = ObjQueue{};
-        ::solvable_lookup_deparray(const_cast<::Solvable*>(raw()), SOLVABLE_PROVIDES, q.raw(), -1);
-        return q;
-    }
-
     void ObjSolvableView::set_provides(const ObjQueue& q) const
     {
         ::solvable_set_deparray(
-            const_cast<::Solvable*>(raw()),
+            raw(),
             SOLVABLE_PROVIDES,
             const_cast<::Queue*>(q.raw()),
             /* marker= */ 0
@@ -421,7 +417,7 @@ namespace mamba::solv
         else
         {
             ::solvable_set_deparray(
-                const_cast<::Solvable*>(raw()),
+                raw(),
                 SOLVABLE_CONSTRAINS,
                 const_cast<::Queue*>(q.raw()),
                 /* marker= */ -1
@@ -463,5 +459,11 @@ namespace mamba::solv
     auto ObjSolvableView::add_track_feature(std::string_view feat) const -> StringId
     {
         return add_track_feature(solvable_add_pool_str(raw()->repo->pool, feat));
+    }
+
+    auto ObjSolvableViewConst::installed() const -> bool
+    {
+        const auto* const repo = raw()->repo;
+        return (repo != nullptr) && (repo == repo->pool->installed);
     }
 }

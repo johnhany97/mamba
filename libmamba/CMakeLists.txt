@@ -123,6 +123,8 @@ set(LIBMAMBA_SOURCES
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/pool.cpp
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/repo.cpp
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/solvable.cpp
+    ${LIBMAMBA_SOURCE_DIR}/solv-cpp/solver.cpp
+    ${LIBMAMBA_SOURCE_DIR}/solv-cpp/transaction.cpp
     # C++ wrapping of libcurl
     ${LIBMAMBA_SOURCE_DIR}/core/curl.cpp
     # C++ wrapping of compression libs (zstd and bzlib)
@@ -165,6 +167,7 @@ set(LIBMAMBA_SOURCES
     ${LIBMAMBA_SOURCE_DIR}/core/subdirdata.cpp
     ${LIBMAMBA_SOURCE_DIR}/core/thread_utils.cpp
     ${LIBMAMBA_SOURCE_DIR}/core/transaction.cpp
+    ${LIBMAMBA_SOURCE_DIR}/core/package_download.cpp
     ${LIBMAMBA_SOURCE_DIR}/core/util.cpp
     ${LIBMAMBA_SOURCE_DIR}/core/fsutil.cpp
     ${LIBMAMBA_SOURCE_DIR}/core/util_string.cpp
@@ -198,17 +201,17 @@ endforeach()
 set(LIBMAMBA_PUBLIC_HEADERS
     ${LIBMAMBA_INCLUDE_DIR}/mamba/version.hpp
     # Utility library
+    ${LIBMAMBA_INCLUDE_DIR}/mamba/util/cast.hpp
+    ${LIBMAMBA_INCLUDE_DIR}/mamba/util/compare.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/util/flat_set.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/util/graph.hpp
-    ${LIBMAMBA_INCLUDE_DIR}/mamba/util/compare.hpp
-    ${LIBMAMBA_INCLUDE_DIR}/mamba/util/cast.hpp
+    ${LIBMAMBA_INCLUDE_DIR}/mamba/util/iterator.hpp
     # Implementation of version and matching specs
     ${LIBMAMBA_INCLUDE_DIR}/mamba/specs/version.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/specs/repo_data.hpp
     # Core API (low-level)
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/activation.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/channel.hpp
-    ${LIBMAMBA_INCLUDE_DIR}/mamba/core/channel_builder.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/palette.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/context.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/environment.hpp
@@ -237,6 +240,7 @@ set(LIBMAMBA_PUBLIC_HEADERS
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/solver.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/subdirdata.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/thread_utils.hpp
+    ${LIBMAMBA_INCLUDE_DIR}/mamba/core/package_download.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/transaction.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/transaction_context.hpp
     ${LIBMAMBA_INCLUDE_DIR}/mamba/core/url.hpp
@@ -276,7 +280,9 @@ set(LIBMAMBA_PRIVATE_HEADERS
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/ids.hpp
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/pool.hpp
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/solvable.hpp
+    ${LIBMAMBA_SOURCE_DIR}/solv-cpp/solver.hpp
     ${LIBMAMBA_SOURCE_DIR}/solv-cpp/repo.hpp
+    ${LIBMAMBA_SOURCE_DIR}/solv-cpp/transaction.hpp
     # C++ wrapping of compression libs (zstd and bzlib)
     ${LIBMAMBA_SOURCE_DIR}/core/compression.hpp
     # C++ wrapping of libcurl
@@ -413,8 +419,8 @@ macro(libmamba_create_target target_name linkage output_name)
             find_library(BZIP2_LIBRARIES NAMES bz2)
             find_library(CRYPTO_LIBRARIES NAMES libcrypto)
 
-            find_library(LIBSOLV_BUILD_STATICRARIES NAMES solv_static)
-            find_library(LIBSOLVEXT_BUILD_STATICRARIES NAMES solvext_static)
+            find_library(LIBSOLV_BUILD_STATICRARIES NAMES solv)
+            find_library(LIBSOLVEXT_BUILD_STATICRARIES NAMES solvext)
             find_package(reproc++ CONFIG REQUIRED)
             find_package(tl-expected REQUIRED)
 

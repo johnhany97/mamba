@@ -41,30 +41,30 @@ get_env_name(const fs::u8path& px)
 
 
 void
-set_env_command(CLI::App* com)
+set_env_command(CLI::App* com, Configuration& config)
 {
-    init_general_options(com);
-    init_prefix_options(com);
+    init_general_options(com, config);
+    init_prefix_options(com, config);
 
     auto* list_subcom = com->add_subcommand("list", "List known environments");
-    init_general_options(list_subcom);
-    init_prefix_options(list_subcom);
+    init_general_options(list_subcom, config);
+    init_prefix_options(list_subcom, config);
 
     auto* create_subcom = com->add_subcommand(
         "create",
         "Create new environment (pre-commit.com compatibility alias for 'micromamba create')"
     );
-    init_install_options(create_subcom);
+    init_install_options(create_subcom, config);
 
-    static bool explicit_format;
-    static bool no_md5;
+    static bool explicit_format = false;
+    static bool no_md5 = false;
 
     static bool no_build = false;
     static bool from_history = false;
 
     auto* export_subcom = com->add_subcommand("export", "Export environment");
-    init_general_options(export_subcom);
-    init_prefix_options(export_subcom);
+    init_general_options(export_subcom, config);
+    init_prefix_options(export_subcom, config);
     export_subcom->add_flag("-e,--explicit", explicit_format, "Use explicit format");
     export_subcom->add_flag("--no-md5,!--md5", no_md5, "Disable md5");
     export_subcom->add_flag("--no-build,!--build", no_build, "Disable the build string in spec");
@@ -75,17 +75,16 @@ set_env_command(CLI::App* com)
     );
 
     export_subcom->callback(
-        []()
+        [&]
         {
             auto const& ctx = Context::instance();
-            auto& config = Configuration::instance();
-            config.at("show_banner").set_value(false);
             config.load();
 
+            mamba::ChannelContext channel_context;
             if (explicit_format)
             {
                 // TODO: handle error
-                auto pd = PrefixData::create(ctx.prefix_params.target_prefix).value();
+                auto pd = PrefixData::create(ctx.prefix_params.target_prefix, channel_context).value();
                 auto records = pd.sorted_records();
                 std::cout << "# This file may be used to create an environment using:\n"
                           << "# $ conda create --name <env> --file <this file>\n"
@@ -106,7 +105,7 @@ set_env_command(CLI::App* com)
             }
             else
             {
-                auto pd = PrefixData::create(ctx.prefix_params.target_prefix).value();
+                auto pd = PrefixData::create(ctx.prefix_params.target_prefix, channel_context).value();
                 History& hist = pd.history();
 
                 const auto& versions_map = pd.records();
@@ -138,7 +137,8 @@ set_env_command(CLI::App* com)
                         dependencies << "\n";
                     }
 
-                    channels.insert(make_channel(v.url).name());
+                    const Channel& channel = channel_context.make_channel(v.url);
+                    channels.insert(channel.name());
                 }
 
                 for (const auto& c : channels)
@@ -152,10 +152,9 @@ set_env_command(CLI::App* com)
     );
 
     list_subcom->callback(
-        []()
+        [&config]
         {
             const auto& ctx = Context::instance();
-            auto& config = Configuration::instance();
             config.load();
 
             EnvironmentsManager env_manager;
@@ -193,16 +192,16 @@ set_env_command(CLI::App* com)
     );
 
     auto* remove_subcom = com->add_subcommand("remove", "Remove an environment");
-    init_general_options(remove_subcom);
-    init_prefix_options(remove_subcom);
+    init_general_options(remove_subcom, config);
+    init_prefix_options(remove_subcom, config);
 
-    create_subcom->callback([&]() { create(); });
+    create_subcom->callback([&] { return mamba::create(config); });
 
     remove_subcom->callback(
-        []()
+        [&config]
         {
             // Remove specs if exist
-            remove(MAMBA_REMOVE_ALL);
+            remove(config, MAMBA_REMOVE_ALL);
 
             const auto& ctx = Context::instance();
             if (!ctx.dry_run)

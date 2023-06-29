@@ -962,11 +962,19 @@ namespace mamba
             LockedFilesRegistry& operator=(LockedFilesRegistry&&) = delete;
             LockedFilesRegistry& operator=(const LockedFilesRegistry&) = delete;
 
+            bool is_file_locking_allowed() const
+            {
+                return m_is_file_locking_allowed;
+            }
+            bool allow_file_locking(bool allow)
+            {
+                return m_is_file_locking_allowed.exchange(allow);
+            }
 
             tl::expected<std::shared_ptr<LockFileOwner>, mamba_error>
             acquire_lock(const fs::u8path& file_path, const std::chrono::seconds timeout)
             {
-                if (!Context::instance().use_lockfiles)
+                if (!m_is_file_locking_allowed)
                 {
                     // No locking allowed, so do nothing.
                     return std::shared_ptr<LockFileOwner>{};
@@ -1032,6 +1040,8 @@ namespace mamba
 
         private:
 
+            std::atomic_bool m_is_file_locking_allowed{ true };
+
             // TODO: replace by something like boost::multiindex or equivalent to avoid having to
             // handle 2 hashmaps
             std::unordered_map<fs::u8path, std::weak_ptr<LockFileOwner>> locked_files;  // TODO:
@@ -1054,6 +1064,16 @@ namespace mamba
         };
 
         static LockedFilesRegistry files_locked_by_this_process;
+    }
+
+    bool is_file_locking_allowed()
+    {
+        return files_locked_by_this_process.is_file_locking_allowed();
+    }
+
+    bool allow_file_locking(bool allow)
+    {
+        return files_locked_by_this_process.allow_file_locking(allow);
     }
 
     bool LockFileOwner::lock_non_blocking()
@@ -1392,7 +1412,7 @@ namespace mamba
         {
             // Micromamba hook
             out << "export MAMBA_EXE=" << std::quoted(get_self_exe_path().string(), '\'') << "\n";
-            hook_quoted << "$MAMBA_EXE 'shell' 'hook' '-s' 'bash' '-p' "
+            hook_quoted << "$MAMBA_EXE 'shell' 'hook' '-s' 'bash' '-r' "
                         << std::quoted(Context::instance().prefix_params.root_prefix.string(), '\'');
         }
         if (debug_wrapper_scripts)

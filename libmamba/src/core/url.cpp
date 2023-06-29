@@ -15,6 +15,94 @@
 
 namespace mamba
 {
+    /*********************
+     * Utility functions *
+     *********************/
+
+    // proper file scheme on Windows is `file:///C:/blabla`
+    // https://blogs.msdn.microsoft.com/ie/2006/12/06/file-uris-in-windows/
+    std::string concat_scheme_url(const std::string& scheme, const std::string& location)
+    {
+        if (scheme == "file" && location.size() > 1 && location[1] == ':')
+        {
+            return concat("file:///", location);
+        }
+        else
+        {
+            return concat(scheme, "://", location);
+        }
+    }
+
+    std::string build_url(
+        const std::optional<std::string>& auth,
+        const std::string& scheme,
+        const std::string& base,
+        bool with_credential
+    )
+    {
+        if (with_credential && auth)
+        {
+            return concat_scheme_url(scheme, concat(*auth, "@", base));
+        }
+        else
+        {
+            return concat_scheme_url(scheme, base);
+        }
+    }
+
+    void split_platform(
+        const std::vector<std::string>& known_platforms,
+        const std::string& url,
+        const std::string& context_platform,
+        std::string& cleaned_url,
+        std::string& platform
+    )
+    {
+        platform = "";
+
+        auto check_platform_position = [&url](std::size_t pos, const std::string& lplatform) -> bool
+        {
+            if (pos == std::string::npos)
+            {
+                return false;
+            }
+            if (pos > 0 && url[pos - 1] != '/')
+            {
+                return false;
+            }
+            if ((pos + lplatform.size()) < url.size() && url[pos + lplatform.size()] != '/')
+            {
+                return false;
+            }
+
+            return true;
+        };
+
+        std::size_t pos = url.find(context_platform);
+        if (check_platform_position(pos, context_platform))
+        {
+            platform = context_platform;
+        }
+        else
+        {
+            for (auto it = known_platforms.begin(); it != known_platforms.end(); ++it)
+            {
+                pos = url.find(*it);
+                if (check_platform_position(pos, *it))
+                {
+                    platform = *it;
+                    break;
+                }
+            }
+        }
+
+        cleaned_url = url;
+        if (pos != std::string::npos)
+        {
+            cleaned_url.replace(pos - 1, platform.size() + 1, "");
+        }
+        cleaned_url = rstrip(cleaned_url, "/");
+    }
 
     bool has_scheme(const std::string& url)
     {
@@ -181,6 +269,10 @@ namespace mamba
         return hex_digest.substr(0u, 8u);
     }
 
+    /*****************************
+     * URLHandler implementation *
+     *****************************/
+
     URLHandler::URLHandler(const std::string& url)
         : m_url(url)
         , m_has_scheme(has_scheme(url))
@@ -264,59 +356,59 @@ namespace mamba
         return res;
     }
 
-    std::string URLHandler::scheme()
+    std::string URLHandler::scheme() const
     {
         return m_has_scheme ? get_part(CURLUPART_SCHEME) : "";
     }
 
-    std::string URLHandler::host()
+    std::string URLHandler::host() const
     {
         return get_part(CURLUPART_HOST);
     }
 
-    std::string URLHandler::path()
+    std::string URLHandler::path() const
     {
         return get_part(CURLUPART_PATH);
     }
 
-    std::string URLHandler::port()
+    std::string URLHandler::port() const
     {
         return get_part(CURLUPART_PORT);
     }
 
-    std::string URLHandler::query()
+    std::string URLHandler::query() const
     {
         return get_part(CURLUPART_QUERY);
     }
 
-    std::string URLHandler::fragment()
+    std::string URLHandler::fragment() const
     {
         return get_part(CURLUPART_FRAGMENT);
     }
 
-    std::string URLHandler::options()
+    std::string URLHandler::options() const
     {
         return get_part(CURLUPART_OPTIONS);
     }
 
-    std::string URLHandler::auth()
+    std::string URLHandler::auth() const
     {
         std::string u = user();
         std::string p = password();
         return p != "" ? u + ':' + p : u;
     }
 
-    std::string URLHandler::user()
+    std::string URLHandler::user() const
     {
         return get_part(CURLUPART_USER);
     }
 
-    std::string URLHandler::password()
+    std::string URLHandler::password() const
     {
         return get_part(CURLUPART_PASSWORD);
     }
 
-    std::string URLHandler::zoneid()
+    std::string URLHandler::zoneid() const
     {
         return get_part(CURLUPART_ZONEID);
     }
@@ -393,7 +485,7 @@ namespace mamba
                                                            "fragment", "zoneid" };
     }
 
-    std::string URLHandler::get_part(CURLUPart part)
+    std::string URLHandler::get_part(CURLUPart part) const
     {
         char* scheme;
         auto rc = curl_url_get(m_handle, part, &scheme, m_has_scheme ? 0 : CURLU_DEFAULT_SCHEME);

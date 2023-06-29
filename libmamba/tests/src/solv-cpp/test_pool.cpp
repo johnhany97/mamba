@@ -15,6 +15,8 @@
 #include "solv-cpp/ids.hpp"
 #include "solv-cpp/pool.hpp"
 
+#include "doctest-printer/vector.hpp"
+
 using namespace mamba::solv;
 
 TEST_SUITE("ObjPool")
@@ -72,6 +74,13 @@ TEST_SUITE("ObjPool")
             CHECK_EQ(pool.get_dependency_relation(id_rel), " > ");
             CHECK_EQ(pool.get_dependency_version(id_rel), "1.0.0");
             CHECK_EQ(pool.dependency_to_string(id_rel), "mamba > 1.0.0");
+
+            SUBCASE("Parse a conda dependency")
+            {
+                const auto id_conda = pool.add_conda_dependency("rattler < 0.1");
+                CHECK_EQ(pool.get_dependency_name(id_conda), "rattler");
+                CHECK_EQ(pool.get_dependency_version(id_conda), "<0.1");
+            }
         }
 
         SUBCASE("Add repo")
@@ -105,15 +114,32 @@ TEST_SUITE("ObjPool")
             SUBCASE("Iterate over repos")
             {
                 const auto repo_ids = std::array{ repo1_id, repo2_id, repo3_id };
-                std::size_t n_repos = 0;
-                pool.for_each_repo_id(
-                    [&](RepoId id)
-                    {
-                        CHECK_NE(std::find(repo_ids.cbegin(), repo_ids.cend(), id), repo_ids.cend());
-                        n_repos++;
-                    }
-                );
-                CHECK_EQ(n_repos, pool.repo_count());
+
+                SUBCASE("Over all repos")
+                {
+                    std::size_t n_repos = 0;
+                    pool.for_each_repo_id(
+                        [&](RepoId id)
+                        {
+                            CHECK_NE(std::find(repo_ids.cbegin(), repo_ids.cend(), id), repo_ids.cend());
+                            n_repos++;
+                        }
+                    );
+                    CHECK_EQ(n_repos, pool.repo_count());
+                }
+
+                SUBCASE("Over one repo then break")
+                {
+                    std::size_t n_repos = 0;
+                    pool.for_each_repo_id(
+                        [&](RepoId)
+                        {
+                            n_repos++;
+                            return LoopControl::Break;
+                        }
+                    );
+                    CHECK_EQ(n_repos, 1);
+                }
             }
 
             SUBCASE("Get inexisting repo")
@@ -152,6 +178,51 @@ TEST_SUITE("ObjPool")
                     CHECK_EQ(pool.solvable_count(), 2);
                     CHECK(pool.get_solvable(id1).has_value());
                     CHECK(pool.get_solvable(id2).has_value());
+                }
+
+                SUBCASE("Iterate over solvables")
+                {
+                    SUBCASE("Iterate over all solvables")
+                    {
+                        std::vector<SolvableId> ids = {};
+                        pool.for_each_solvable_id([&](SolvableId id) { ids.push_back(id); });
+                        std::sort(ids.begin(), ids.end());  // Ease comparison
+                        CHECK_EQ(ids, decltype(ids){ id1, id2 });
+                        pool.for_each_solvable(
+                            [&](ObjSolvableViewConst s)
+                            { CHECK_NE(std::find(ids.cbegin(), ids.cend(), s.id()), ids.cend()); }
+                        );
+                    }
+
+                    SUBCASE("Over one solvable then break")
+                    {
+                        std::size_t n_solvables = 0;
+                        pool.for_each_solvable_id(
+                            [&](RepoId)
+                            {
+                                n_solvables++;
+                                return LoopControl::Break;
+                            }
+                        );
+                        CHECK_EQ(n_solvables, 1);
+                    }
+                }
+
+                SUBCASE("Iterate on installed solvables")
+                {
+                    SUBCASE("No instaled repo")
+                    {
+                        pool.for_each_installed_solvable_id([&](SolvableId) { CHECK(false); });
+                    }
+
+                    SUBCASE("One installed repo")
+                    {
+                        pool.set_installed_repo(repo1_id);
+                        std::vector<SolvableId> ids = {};
+                        pool.for_each_installed_solvable_id([&](auto id) { ids.push_back(id); });
+                        std::sort(ids.begin(), ids.end());  // Ease comparsion
+                        CHECK_EQ(ids, decltype(ids){ id1 });
+                    }
                 }
 
                 SUBCASE("Iterate through whatprovides")

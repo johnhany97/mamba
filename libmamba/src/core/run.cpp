@@ -1,7 +1,16 @@
+// Copyright (c) 2020, QuantStack and Mamba Contributors
+//
+// Distributed under the terms of the BSD 3-Clause License.
+//
+// The full license is in the file LICENSE, distributed with this software.
+
+#include <array>
 #include <csignal>
 #include <exception>
 #include <iostream>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include <fmt/color.h>
 #include <fmt/format.h>
@@ -10,10 +19,11 @@
 #include <reproc++/run.hpp>
 #include <spdlog/spdlog.h>
 
-#include "mamba/api/configuration.hpp"
-#include "mamba/api/install.hpp"
+#include "mamba/core/context.hpp"
+#include "mamba/core/environment.hpp"
 #include "mamba/core/error_handling.hpp"
 #include "mamba/core/execution.hpp"
+#include "mamba/core/output.hpp"
 #include "mamba/core/run.hpp"
 #include "mamba/core/util_os.hpp"
 #include "mamba/core/util_random.hpp"
@@ -41,7 +51,7 @@ namespace mamba
     {
         assert(!program_name.empty());
 
-        static const std::vector prefixes = {
+        static constexpr std::array prefixes = {
             "curious",   "gentle",   "happy",      "stubborn",   "boring",  "interesting",
             "funny",     "weird",    "surprising", "serious",    "tender",  "obvious",
             "great",     "proud",    "silent",     "loud",       "vacuous", "focused",
@@ -55,7 +65,7 @@ namespace mamba
             "program", "application", "app", "code", "blob", "binary", "script",
         };
 
-        static std::vector prefixes_bag = prefixes;
+        static std::vector prefixes_bag(prefixes.cbegin(), prefixes.cend());
         std::string selected_name{ program_name };
         while (true)
         {
@@ -81,8 +91,9 @@ namespace mamba
                 );
                 selected_name = *selected_name_it;
                 alt_names.erase(selected_name_it);
-                prefixes_bag = prefixes;  // Re-fill the prefix bag.
-                continue;                 // Re-try with new prefix + new name.
+                // Re-fill the prefix bag.
+                prefixes_bag = decltype(prefixes_bag)(prefixes.cbegin(), prefixes.cend());
+                continue;  // Re-try with new prefix + new name.
             }
             else
             {
@@ -103,7 +114,7 @@ namespace mamba
 
     const fs::u8path& proc_dir()
     {
-        static auto path = env::home_directory() / ".mamba" / "proc";
+        static const auto path = env::home_directory() / ".mamba" / "proc";
         return path;
     }
 
@@ -183,7 +194,7 @@ namespace mamba
         : location{ proc_dir() / fmt::format("{}.json", getpid()) }
     {
         // Lock must be hold for the duraction of this constructor.
-        if (Context::instance().use_lockfiles)
+        if (is_file_locking_allowed())
         {
             assert(proc_dir_lock);
         }
@@ -273,6 +284,7 @@ namespace mamba
 #endif
 
     int run_in_environment(
+        const fs::u8path& prefix,
         std::vector<std::string> command,
         const std::string& cwd,
         int stream_options,
@@ -282,10 +294,9 @@ namespace mamba
         const std::string& specific_process_name
     )
     {
-        if (!fs::exists(Context::instance().prefix_params.target_prefix))
+        if (!fs::exists(prefix))
         {
-            LOG_CRITICAL << "The given prefix does not exist: "
-                         << Context::instance().prefix_params.target_prefix;
+            LOG_CRITICAL << "The given prefix does not exist: " << prefix;
             return 1;
         }
         std::vector<std::string> raw_command = command;
@@ -308,10 +319,7 @@ namespace mamba
         }
 #endif
 
-        auto [wrapped_command, script_file] = prepare_wrapped_call(
-            Context::instance().prefix_params.target_prefix,
-            command
-        );
+        auto [wrapped_command, script_file] = prepare_wrapped_call(prefix, command);
 
         fmt::print(LOG_DEBUG, "Running wrapped script: {}", fmt::join(command, " "));
 

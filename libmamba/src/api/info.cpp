@@ -21,10 +21,8 @@ extern "C"
 
 namespace mamba
 {
-    void info()
+    void info(Configuration& config)
     {
-        auto& config = Configuration::instance();
-
         config.at("use_target_prefix_fallback").set_value(true);
         config.at("target_prefix_checks")
             .set_value(
@@ -32,16 +30,10 @@ namespace mamba
             );
         config.load();
 
-        detail::print_info();
+        ChannelContext channel_context;
+        detail::print_info(channel_context, config);
 
         config.operation_teardown();
-    }
-
-    std::string banner()
-    {
-        auto& ctx = Context::instance();
-        return ctx.command_params.custom_banner.empty() ? mamba_banner
-                                                        : ctx.command_params.custom_banner;
     }
 
     namespace detail
@@ -92,10 +84,23 @@ namespace mamba
             Console::instance().json_write(items_map);
         }
 
-        void print_info()
+        void print_info(ChannelContext& channel_context, const Configuration& config)
         {
             auto& ctx = Context::instance();
             std::vector<std::tuple<std::string, nlohmann::json>> items;
+
+            items.push_back({ "libmamba version", version() });
+
+            if (ctx.command_params.is_micromamba && !ctx.command_params.caller_version.empty())
+            {
+                items.push_back({ "micromamba version", ctx.command_params.caller_version });
+            }
+
+            items.push_back({ "curl version", curl_version() });
+            items.push_back({ "libarchive version", archive_version_details() });
+
+            items.push_back({ "envs directories", ctx.envs_dirs });
+            items.push_back({ "package cache", ctx.pkgs_dirs });
 
             std::string name, location;
             if (!ctx.prefix_params.target_prefix.empty())
@@ -134,23 +139,12 @@ namespace mamba
             items.push_back({ "user config files",
                               { (env::home_directory() / ".mambarc").string() } });
 
-            Configuration& config = Configuration::instance();
             std::vector<std::string> sources;
             for (auto s : config.valid_sources())
             {
                 sources.push_back(s.string());
             };
             items.push_back({ "populated config files", sources });
-
-            items.push_back({ "libmamba version", version() });
-
-            if (ctx.command_params.is_micromamba && !ctx.command_params.caller_version.empty())
-            {
-                items.push_back({ "micromamba version", ctx.command_params.caller_version });
-            }
-
-            items.push_back({ "curl version", curl_version() });
-            items.push_back({ "libarchive version", archive_version_details() });
 
             std::vector<std::string> virtual_pkgs;
             for (auto pkg : get_virtual_packages())
@@ -164,7 +158,7 @@ namespace mamba
             auto& ctx_channels = Context::instance().channels;
             std::copy(ctx_channels.begin(), ctx_channels.end(), std::back_inserter(channels));
             std::vector<std::string> channel_urls;
-            for (auto channel : get_channels(channels))
+            for (auto channel : channel_context.get_channels(channels))
             {
                 for (auto url : channel->urls(true))
                 {

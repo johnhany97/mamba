@@ -6,11 +6,13 @@
 
 #include <fmt/color.h>
 #include <fmt/format.h>
+#include <reproc++/run.hpp>
 
 #include "mamba/api/channel_loader.hpp"
 #include "mamba/api/configuration.hpp"
 #include "mamba/api/shell.hpp"
 #include "mamba/api/update.hpp"
+#include "mamba/core/channel.hpp"
 #include "mamba/core/context.hpp"
 #include "mamba/core/transaction.hpp"
 #include "mamba/core/util_os.hpp"
@@ -21,9 +23,8 @@
 using namespace mamba;  // NOLINT(build/namespaces)
 
 int
-update_self(const std::optional<std::string>& version)
+update_self(Configuration& config, const std::optional<std::string>& version)
 {
-    auto& config = mamba::Configuration::instance();
     auto& ctx = mamba::Context::instance();
     config.load();
 
@@ -31,7 +32,8 @@ update_self(const std::optional<std::string>& version)
     // the conda-meta folder of the target_prefix)
     ctx.prefix_params.target_prefix = ctx.prefix_params.root_prefix;
 
-    mamba::MPool pool;
+    mamba::ChannelContext channel_context;
+    mamba::MPool pool{ channel_context };
     mamba::MultiPackageCache package_caches(ctx.pkgs_dirs);
 
     auto exp_loaded = load_channels(pool, package_caches, 0);
@@ -44,11 +46,11 @@ update_self(const std::optional<std::string>& version)
     std::string matchspec = version ? fmt::format("micromamba={}", version.value())
                                     : fmt::format("micromamba>{}", umamba::version());
 
-    auto solvable_ids = pool.select_solvables(pool.matchspec2id({ matchspec }), true);
+    auto solvable_ids = pool.select_solvables(pool.matchspec2id({ matchspec, channel_context }), true);
 
     if (solvable_ids.empty())
     {
-        if (pool.select_solvables(pool.matchspec2id({ "micromamba" })).empty())
+        if (pool.select_solvables(pool.matchspec2id({ "micromamba", channel_context })).empty())
         {
             throw mamba::mamba_error(
                 "No micromamba found in the loaded channels. Add 'conda-forge' to your config file.",
@@ -85,7 +87,7 @@ update_self(const std::optional<std::string>& version)
 
     ctx.download_only = true;
     MTransaction t(pool, { latest_micromamba.value() }, package_caches);
-    auto exp_prefix_data = PrefixData::create(ctx.prefix_params.root_prefix);
+    auto exp_prefix_data = PrefixData::create(ctx.prefix_params.root_prefix, channel_context);
     if (!exp_prefix_data)
     {
         throw exp_prefix_data.error();
@@ -135,20 +137,35 @@ update_self(const std::optional<std::string>& version)
         throw;
     }
 
-    Console::instance().print("\nReinitializing all previously initialized shells\n");
-    std::string shell_type = "";
-    mamba::shell("reinit", shell_type, ctx.prefix_params.root_prefix, false);
+    // Command to reinit shell from the new executable.
+    // Adding bash as the shell but this is just a placeholder as the find_initialized_shells()
+    // deals with the reinit.
+    std::vector<std::string> command = { mamba_exe, "shell", "reinit",          "-s",
+                                         "bash",    "-p",    prefix_data.path() };
 
-    return 0;
+    // The options for the process
+    reproc::options options;
+    options.redirect.parent = true;  // Redirect output
+    options.deadline = reproc::milliseconds(5000);
+
+    // Run the command in a redirected process
+    int status = -1;
+    std::error_code ec;
+    std::tie(status, ec) = reproc::run(command, options);
+
+    if (ec)
+    {
+        std::cerr << "error: " << ec.message() << std::endl;
+    }
+
+    return ec ? ec.value() : status;
 }
 
 
 void
-set_update_command(CLI::App* subcom)
+set_update_command(CLI::App* subcom, Configuration& config)
 {
-    Configuration::instance();
-
-    init_install_options(subcom);
+    init_install_options(subcom, config);
 
     static bool prune = true;
     static bool update_all = false;
@@ -157,18 +174,16 @@ set_update_command(CLI::App* subcom)
     subcom->get_option("specs")->description("Specs to update in the environment");
     subcom->add_flag("-a,--all", update_all, "Update all packages in the environment");
 
-    subcom->callback([&]() { update(update_all, prune); });
+    subcom->callback([&] { return update(config, update_all, prune); });
 }
 
 void
-set_self_update_command(CLI::App* subcom)
+set_self_update_command(CLI::App* subcom, Configuration& config)
 {
-    Configuration::instance();
-
-    init_install_options(subcom);
+    init_install_options(subcom, config);
 
     static std::optional<std::string> version;
     subcom->add_option("--version", version, "Install specific micromamba version");
 
-    subcom->callback([&]() { return update_self(version); });
+    subcom->callback([&] { return update_self(config, version); });
 }

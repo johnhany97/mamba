@@ -20,8 +20,7 @@
 #include <windows.h>
 // Incomplete header included last
 #include <tlhelp32.h>
-
-#include "WinReg.hpp"
+#include <WinReg.hpp>
 #endif
 
 #include <fmt/color.h>
@@ -699,5 +698,24 @@ namespace mamba
         {
             throw std::runtime_error(std::string("Could not codesign executable: ") + ec.message());
         }
+    }
+
+    std::string fix_win_path(const std::string& path)
+    {
+#ifdef _WIN32
+        if (starts_with(path, "file:"))
+        {
+            std::regex re(R"(\\(?! ))");
+            std::string res = std::regex_replace(path, re, R"(/)");
+            replace_all(res, ":////", "://");
+            return res;
+        }
+        else
+        {
+            return path;
+        }
+#else
+        return path;
+#endif
     }
 }

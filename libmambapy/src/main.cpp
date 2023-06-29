@@ -112,6 +112,21 @@ bind_NamedList(PyClass pyclass)
     return pyclass;
 }
 
+namespace mambapy
+{
+    struct Singletons
+    {
+        mamba::ChannelContext channel_context;
+        mamba::Configuration config;
+    };
+
+    Singletons& singletons()
+    {
+        static Singletons singletons;
+        return singletons;
+    }
+}
+
 PYBIND11_MODULE(bindings, m)
 {
     using namespace mamba;
@@ -143,18 +158,24 @@ PYBIND11_MODULE(bindings, m)
 
     py::class_<MatchSpec>(m, "MatchSpec")
         .def(py::init<>())
-        .def(py::init<const std::string&>())
+        .def(py::init<>(
+            [](const std::string& name) {
+                return MatchSpec{ name, mambapy::singletons().channel_context };
+            }
+        ))
         .def("conda_build_form", &MatchSpec::conda_build_form);
 
     py::class_<MPool>(m, "Pool")
-        .def(py::init<>())
+        .def(py::init<>([] { return MPool{ mambapy::singletons().channel_context }; }))
         .def("set_debuglevel", &MPool::set_debuglevel)
         .def("create_whatprovides", &MPool::create_whatprovides)
         .def("select_solvables", &MPool::select_solvables, py::arg("id"), py::arg("sorted") = false)
         .def("matchspec2id", &MPool::matchspec2id, py::arg("ms"))
         .def(
             "matchspec2id",
-            [](MPool& self, std::string_view ms) { return self.matchspec2id({ ms }); },
+            [](MPool& self, std::string_view ms) {
+                return self.matchspec2id({ ms, mambapy::singletons().channel_context });
+            },
             py::arg("ms")
         )
         .def("id2pkginfo", &MPool::id2pkginfo, py::arg("id"));
@@ -259,7 +280,15 @@ PYBIND11_MODULE(bindings, m)
         .def("clear", [](PbGraph::conflicts_t& self) { return self.clear(); })
         .def("add", &PbGraph::conflicts_t::add);
 
-    pyPbGraph.def_static("from_solver", &PbGraph::from_solver)
+    pyPbGraph
+        .def_static(
+            "from_solver",
+            [](const MSolver& solver, const MPool& /* pool */)
+            {
+                deprecated("Use Solver.problems_graph() instead");
+                return solver.problems_graph();
+            }
+        )
         .def("root_node", &PbGraph::root_node)
         .def("conflicts", &PbGraph::conflicts)
         .def(
@@ -309,7 +338,11 @@ PYBIND11_MODULE(bindings, m)
         .def("tree_message", [](const CpPbGraph& self) { return problem_tree_msg(self); });
 
     py::class_<History>(m, "History")
-        .def(py::init<const fs::u8path&>())
+        .def(py::init(
+            [](const fs::u8path& path) {
+                return History{ path, mambapy::singletons().channel_context };
+            }
+        ))
         .def("get_requested_specs_map", &History::get_requested_specs_map);
 
     /*py::class_<Query>(m, "Query")
@@ -337,7 +370,8 @@ PYBIND11_MODULE(bindings, m)
                 switch (format)
                 {
                     case query::JSON:
-                        res_stream << res.groupby("name").json().dump(4);
+                        res_stream
+                            << res.groupby("name").json(mambapy::singletons().channel_context).dump(4);
                         break;
                     case query::TREE:
                     case query::TABLE:
@@ -369,7 +403,7 @@ PYBIND11_MODULE(bindings, m)
                         res.tree(res_stream);
                         break;
                     case query::JSON:
-                        res_stream << res.json().dump(4);
+                        res_stream << res.json(mambapy::singletons().channel_context).dump(4);
                         break;
                     case query::TABLE:
                     case query::RECURSIVETABLE:
@@ -402,7 +436,7 @@ PYBIND11_MODULE(bindings, m)
                         res.tree(res_stream);
                         break;
                     case query::JSON:
-                        res_stream << res.json().dump(4);
+                        res_stream << res.json(mambapy::singletons().channel_context).dump(4);
                         break;
                     case query::TABLE:
                     case query::RECURSIVETABLE:
@@ -512,7 +546,19 @@ PYBIND11_MODULE(bindings, m)
                            " The new error messages are always enabled.");
             }
         )
-        .def_readwrite("use_lockfiles", &Context::use_lockfiles)
+        .def_property(
+            "use_lockfiles",
+            [](Context& ctx)
+            {
+                ctx.use_lockfiles = is_file_locking_allowed();
+                return ctx.use_lockfiles;
+            },
+            [](Context& ctx, bool allow)
+            {
+                allow_file_locking(allow);
+                ctx.use_lockfiles = allow;
+            }
+        )
         .def("set_verbosity", &Context::set_verbosity)
         .def("set_log_level", &Context::set_log_level);
 
@@ -548,11 +594,206 @@ PYBIND11_MODULE(bindings, m)
         .def_readwrite("threads_params", &Context::threads_params)
         .def_readwrite("prefix_params", &Context::prefix_params);
 
+    ////////////////////////////////////////////
+    //    Support the old deprecated API     ///
+    ////////////////////////////////////////////
+    // RemoteFetchParams
+    ctx.def_property(
+           "ssl_verify",
+           [](const Context& self)
+           {
+               deprecated("Use `remote_fetch_params.ssl_verify` instead.");
+               return self.remote_fetch_params.ssl_verify;
+           },
+           [](Context& self, std::string sv)
+           {
+               deprecated("Use `remote_fetch_params.ssl_verify` instead.");
+               self.remote_fetch_params.ssl_verify = sv;
+           }
+    )
+        .def_property(
+            "max_retries",
+            [](const Context& self)
+            {
+                deprecated("Use `remote_fetch_params.max_retries` instead.");
+                return self.remote_fetch_params.max_retries;
+            },
+            [](Context& self, int mr)
+            {
+                deprecated("Use `remote_fetch_params.max_retries` instead.");
+                self.remote_fetch_params.max_retries = mr;
+            }
+        )
+        .def_property(
+            "retry_timeout",
+            [](const Context& self)
+            {
+                deprecated("Use `remote_fetch_params.retry_timeout` instead.");
+                return self.remote_fetch_params.retry_timeout;
+            },
+            [](Context& self, int rt)
+            {
+                deprecated("Use `remote_fetch_params.retry_timeout` instead.");
+                self.remote_fetch_params.retry_timeout = rt;
+            }
+        )
+        .def_property(
+            "retry_backoff",
+            [](const Context& self)
+            {
+                deprecated("Use `remote_fetch_params.retry_backoff` instead.");
+                return self.remote_fetch_params.retry_backoff;
+            },
+            [](Context& self, int rb)
+            {
+                deprecated("Use `remote_fetch_params.retry_backoff` instead.");
+                self.remote_fetch_params.retry_backoff = rb;
+            }
+        )
+        .def_property(
+            "user_agent",
+            [](const Context& self)
+            {
+                deprecated("Use `remote_fetch_params.user_agent` instead.");
+                return self.remote_fetch_params.user_agent;
+            },
+            [](Context& self, std::string ua)
+            {
+                deprecated("Use `remote_fetch_params.user_agent` instead.");
+                self.remote_fetch_params.user_agent = ua;
+            }
+        )
+        .def_property(
+            "connect_timeout_secs",
+            [](const Context& self)
+            {
+                deprecated("Use `remote_fetch_params.connect_timeout_secs` instead.");
+                return self.remote_fetch_params.connect_timeout_secs;
+            },
+            [](Context& self, int cts)
+            {
+                deprecated("Use `remote_fetch_params.connect_timeout_secs` instead.");
+                self.remote_fetch_params.connect_timeout_secs = cts;
+            }
+        );
+
+    // OutputParams
+    ctx.def_property(
+           "verbosity",
+           [](const Context& self)
+           {
+               deprecated("Use `output_params.verbosity` instead.");
+               return self.output_params.verbosity;
+           },
+           [](Context& self, int v)
+           {
+               deprecated("Use `output_params.verbosity` instead.");
+               self.output_params.verbosity = v;
+           }
+    )
+        .def_property(
+            "json",
+            [](const Context& self)
+            {
+                deprecated("Use `output_params.json` instead.");
+                return self.output_params.json;
+            },
+            [](Context& self, bool j)
+            {
+                deprecated("Use `output_params.json` instead.");
+                self.output_params.json = j;
+            }
+        )
+        .def_property(
+            "quiet",
+            [](const Context& self)
+            {
+                deprecated("Use `output_params.quiet` instead.");
+                return self.output_params.quiet;
+            },
+            [](Context& self, bool q)
+            {
+                deprecated("Use `output_params.quiet` instead.");
+                self.output_params.quiet = q;
+            }
+        );
+
+    // ThreadsParams
+    ctx.def_property(
+           "download_threads",
+           [](const Context& self)
+           {
+               deprecated("Use `threads_params.download_threads` instead.");
+               return self.threads_params.download_threads;
+           },
+           [](Context& self, std::size_t dt)
+           {
+               deprecated("Use `threads_params.download_threads` instead.");
+               self.threads_params.download_threads = dt;
+           }
+    )
+        .def_property(
+            "extract_threads",
+            [](const Context& self)
+            {
+                deprecated("Use `threads_params.extract_threads` instead.");
+                return self.threads_params.extract_threads;
+            },
+            [](Context& self, int et)
+            {
+                deprecated("Use `threads_params.extract_threads` instead.");
+                self.threads_params.extract_threads = et;
+            }
+        );
+
+    // PrefixParams
+    ctx.def_property(
+           "target_prefix",
+           [](const Context& self)
+           {
+               deprecated("Use `prefix_params.target_prefix` instead.");
+               return self.prefix_params.target_prefix;
+           },
+           [](Context& self, fs::u8path tp)
+           {
+               deprecated("Use `prefix_params.target_prefix` instead.");
+               self.prefix_params.target_prefix = tp;
+           }
+    )
+        .def_property(
+            "conda_prefix",
+            [](const Context& self)
+            {
+                deprecated("Use `prefix_params.conda_prefix` instead.");
+                return self.prefix_params.conda_prefix;
+            },
+            [](Context& self, fs::u8path cp)
+            {
+                deprecated("Use `prefix_params.conda_prefix` instead.");
+                self.prefix_params.conda_prefix = cp;
+            }
+        )
+        .def_property(
+            "root_prefix",
+            [](const Context& self)
+            {
+                deprecated("Use `prefix_params.root_prefix` instead.");
+                return self.prefix_params.root_prefix;
+            },
+            [](Context& self, fs::u8path rp)
+            {
+                deprecated("Use `prefix_params.root_prefix` instead.");
+                self.prefix_params.root_prefix = rp;
+            }
+        );
+
+    ////////////////////////////////////////////
+
     pyPrefixData
         .def(py::init(
             [](const fs::u8path& prefix_path) -> PrefixData
             {
-                auto sres = PrefixData::create(prefix_path);
+                auto sres = PrefixData::create(prefix_path, mambapy::singletons().channel_context);
                 if (sres.has_value())
                 {
                     return std::move(sres.value());
@@ -579,6 +820,7 @@ PYBIND11_MODULE(bindings, m)
         .def_readwrite("version", &PackageInfo::version)
         .def_readwrite("build_string", &PackageInfo::build_string)
         .def_readwrite("build_number", &PackageInfo::build_number)
+        .def_readwrite("noarch", &PackageInfo::noarch)
         .def_readwrite("channel", &PackageInfo::channel)
         .def_readwrite("url", &PackageInfo::url)
         .def_readwrite("subdir", &PackageInfo::subdir)
@@ -707,8 +949,12 @@ PYBIND11_MODULE(bindings, m)
         );
 
     pyChannel
-        .def(py::init([](const std::string& value)
-                      { return const_cast<Channel*>(&make_channel(value)); }))
+        .def(py::init(
+            [](const std::string& value) {
+                return const_cast<Channel*>(&mambapy::singletons().channel_context.make_channel(value)
+                );
+            }
+        ))
         .def_property_readonly("scheme", &Channel::scheme)
         .def_property_readonly("location", &Channel::location)
         .def_property_readonly("name", &Channel::name)
@@ -741,19 +987,13 @@ PYBIND11_MODULE(bindings, m)
             }
         );
 
-    m.def("clean", &clean);
+    m.def("clean", [](int flags) { return clean(mambapy::singletons().config, flags); });
 
-    py::class_<Configuration, std::unique_ptr<Configuration, py::nodelete>>(m, "Configuration")
-        .def(py::init(
-            []() { return std::unique_ptr<Configuration, py::nodelete>(&Configuration::instance()); }
-        ))
-        .def_property(
-            "show_banner",
-            []() -> bool { return Configuration::instance().at("show_banner").value<bool>(); },
-            [](py::object&, bool val) { Configuration::instance().at("show_banner").set_value(val); }
-        );
-
-    m.def("get_channels", &get_channels);
+    m.def(
+        "get_channels",
+        [](const std::vector<std::string>& channel_names)
+        { return mambapy::singletons().channel_context.get_channels(channel_names); }
+    );
 
     m.def(
         "transmute",

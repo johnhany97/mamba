@@ -14,7 +14,10 @@
 #include "solv-cpp/ids.hpp"
 #include "solv-cpp/solvable.hpp"
 
-using Repo = struct s_Repo;
+extern "C"
+{
+    using Repo = struct s_Repo;
+}
 
 namespace fs
 {
@@ -27,6 +30,8 @@ namespace mamba::solv
     class ObjRepoViewConst
     {
     public:
+
+        static auto of_solvable(ObjSolvableViewConst s) -> ObjRepoViewConst;
 
         explicit ObjRepoViewConst(const ::Repo& repo) noexcept;
         ~ObjRepoViewConst() noexcept;
@@ -263,6 +268,8 @@ namespace mamba::solv
     };
 }
 
+#include <type_traits>
+
 #include <solv/repo.h>
 
 namespace mamba::solv
@@ -279,7 +286,17 @@ namespace mamba::solv
         const ::Solvable* s = nullptr;
         FOR_REPO_SOLVABLES(repo, id, s)
         {
-            func(id);
+            if constexpr (std::is_same_v<decltype(func(id)), LoopControl>)
+            {
+                if (func(id) == LoopControl::Break)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                func(id);
+            }
         }
     }
 
@@ -291,7 +308,18 @@ namespace mamba::solv
         const ::Solvable* s = nullptr;
         FOR_REPO_SOLVABLES(repo, id, s)
         {
-            func(ObjSolvableViewConst{ *s });
+            auto solvable = ObjSolvableViewConst{ *s };
+            if constexpr (std::is_same_v<decltype(func(solvable)), LoopControl>)
+            {
+                if (func(solvable) == LoopControl::Break)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                func(solvable);
+            }
         }
     }
 
@@ -303,7 +331,18 @@ namespace mamba::solv
         ::Solvable* s = nullptr;
         FOR_REPO_SOLVABLES(repo, id, s)
         {
-            func(ObjSolvableView{ *s });
+            auto solvable = ObjSolvableView{ *s };
+            if constexpr (std::is_same_v<decltype(func(solvable)), LoopControl>)
+            {
+                if (func(solvable) == LoopControl::Break)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                func(solvable);
+            }
         }
     }
 

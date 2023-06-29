@@ -1,3 +1,49 @@
+mamba 1.4.5 (June 27, 2023)
+===========================
+
+Enhancements:
+
+- No singleton: ChannelContext, ChannelBuilder and channel cache by @Klaim in https://github.com/mamba-org/mamba/pull/2455
+- Common CMake presets by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2532
+- No singleton: configuration by @Klaim in https://github.com/mamba-org/mamba/pull/2541
+- Remove banner by @jonashaag in https://github.com/mamba-org/mamba/pull/2298
+
+Bug fixes:
+
+- fix different behavior between --version and -V options by @alaniwi in https://github.com/mamba-org/mamba/pull/2539
+- Fix server auth test by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2560
+
+CI fixes and doc:
+
+- update the umamba GHA link by @ocefpaf in https://github.com/mamba-org/mamba/pull/2542
+- Extend troubleshooting docs by @jonashaag in https://github.com/mamba-org/mamba/pull/2569
+- Update pre-commit hooks by @jonashaag in https://github.com/mamba-org/mamba/pull/2586
+- Move GHA to setup-micromamba by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2545
+- Switch linters to setup-micromamba by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2600
+- Switch to setup-micromamba by @pavelzw in https://github.com/mamba-org/mamba/pull/2610
+- Fix broken ref directives in docs by @mfisher87 in https://github.com/mamba-org/mamba/pull/2620
+
+mamba 1.4.4 (May 16, 2023)
+==========================
+
+
+mamba 1.4.3 (May 15, 2023)
+==========================
+
+Enhancements:
+
+- Context structuring by @Hind-M in https://github.com/mamba-org/mamba/pull/2432
+- Add mamba version to mamba info output by @Hind-M in https://github.com/mamba-org/mamba/pull/2477
+- Resume Context structuring by @Hind-M in https://github.com/mamba-org/mamba/pull/2460
+
+Bug fixes:
+
+- Move repoquery python test from libmamba (not run) to mamba by @Hind-M in https://github.com/mamba-org/mamba/pull/2489
+
+CI fixes and doc:
+
+- Extend issue template by @jonashaag in https://github.com/mamba-org/mamba/pull/2310
+
 mamba 1.4.2 (April 06, 2023)
 ============================
 

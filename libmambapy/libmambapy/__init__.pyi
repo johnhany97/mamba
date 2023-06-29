@@ -6,7 +6,6 @@ __all__ = [
     "Channel",
     "ChannelPriority",
     "CompressedProblemsGraph",
-    "Configuration",
     "Context",
     "DownloadTargetList",
     "ExtraPkgInfo",
@@ -357,12 +356,12 @@ class CompressedProblemsGraph:
     def conflicts(self) -> ProblemsGraph.ConflictMap: ...
     @staticmethod
     @typing.overload
-    def from_problems_graph(arg0: ProblemsGraph) -> CompressedProblemsGraph: ...
-    @staticmethod
-    @typing.overload
     def from_problems_graph(
         arg0: ProblemsGraph, arg1: typing.Callable[[ProblemsGraph, int, int], bool]
     ) -> CompressedProblemsGraph: ...
+    @staticmethod
+    @typing.overload
+    def from_problems_graph(arg0: ProblemsGraph) -> CompressedProblemsGraph: ...
     def graph(
         self,
     ) -> typing.Tuple[
@@ -379,18 +378,6 @@ class CompressedProblemsGraph:
     ]: ...
     def root_node(self) -> int: ...
     def tree_message(self) -> str: ...
-    pass
-
-class Configuration:
-    def __init__(self) -> None: ...
-    @property
-    def show_banner(self) -> bool:
-        """
-        :type: bool
-        """
-    @show_banner.setter
-    def show_banner(self, arg1: bool) -> None:
-        pass
     pass
 
 class Context:
@@ -565,6 +552,22 @@ class Context:
     def channels(self, arg0: typing.List[str]) -> None:
         pass
     @property
+    def conda_prefix(self) -> Path:
+        """
+        :type: Path
+        """
+    @conda_prefix.setter
+    def conda_prefix(self, arg1: Path) -> None:
+        pass
+    @property
+    def connect_timeout_secs(self) -> int:
+        """
+        :type: int
+        """
+    @connect_timeout_secs.setter
+    def connect_timeout_secs(self, arg1: int) -> None:
+        pass
+    @property
     def custom_channels(self) -> typing.Dict[str, str]:
         """
         :type: typing.Dict[str, str]
@@ -597,6 +600,14 @@ class Context:
     def download_only(self, arg0: bool) -> None:
         pass
     @property
+    def download_threads(self) -> int:
+        """
+        :type: int
+        """
+    @download_threads.setter
+    def download_threads(self, arg1: int) -> None:
+        pass
+    @property
     def dry_run(self) -> bool:
         """
         :type: bool
@@ -621,12 +632,36 @@ class Context:
     def experimental_sat_error_message(self, arg1: bool) -> None:
         pass
     @property
+    def extract_threads(self) -> int:
+        """
+        :type: int
+        """
+    @extract_threads.setter
+    def extract_threads(self, arg1: int) -> None:
+        pass
+    @property
+    def json(self) -> bool:
+        """
+        :type: bool
+        """
+    @json.setter
+    def json(self, arg1: bool) -> None:
+        pass
+    @property
     def local_repodata_ttl(self) -> int:
         """
         :type: int
         """
     @local_repodata_ttl.setter
     def local_repodata_ttl(self, arg0: int) -> None:
+        pass
+    @property
+    def max_retries(self) -> int:
+        """
+        :type: int
+        """
+    @max_retries.setter
+    def max_retries(self, arg1: int) -> None:
         pass
     @property
     def offline(self) -> bool:
@@ -677,12 +712,60 @@ class Context:
     def proxy_servers(self, arg0: typing.Dict[str, str]) -> None:
         pass
     @property
+    def quiet(self) -> bool:
+        """
+        :type: bool
+        """
+    @quiet.setter
+    def quiet(self, arg1: bool) -> None:
+        pass
+    @property
     def remote_fetch_params(self) -> Context.RemoteFetchParams:
         """
         :type: Context.RemoteFetchParams
         """
     @remote_fetch_params.setter
     def remote_fetch_params(self, arg0: Context.RemoteFetchParams) -> None:
+        pass
+    @property
+    def retry_backoff(self) -> int:
+        """
+        :type: int
+        """
+    @retry_backoff.setter
+    def retry_backoff(self, arg1: int) -> None:
+        pass
+    @property
+    def retry_timeout(self) -> int:
+        """
+        :type: int
+        """
+    @retry_timeout.setter
+    def retry_timeout(self, arg1: int) -> None:
+        pass
+    @property
+    def root_prefix(self) -> Path:
+        """
+        :type: Path
+        """
+    @root_prefix.setter
+    def root_prefix(self, arg1: Path) -> None:
+        pass
+    @property
+    def ssl_verify(self) -> str:
+        """
+        :type: str
+        """
+    @ssl_verify.setter
+    def ssl_verify(self, arg1: str) -> None:
+        pass
+    @property
+    def target_prefix(self) -> Path:
+        """
+        :type: Path
+        """
+    @target_prefix.setter
+    def target_prefix(self, arg1: Path) -> None:
         pass
     @property
     def threads_params(self) -> Context.ThreadsParams:
@@ -706,7 +789,7 @@ class Context:
         :type: bool
         """
     @use_lockfiles.setter
-    def use_lockfiles(self, arg0: bool) -> None:
+    def use_lockfiles(self, arg1: bool) -> None:
         pass
     @property
     def use_only_tar_bz2(self) -> bool:
@@ -715,6 +798,22 @@ class Context:
         """
     @use_only_tar_bz2.setter
     def use_only_tar_bz2(self, arg0: bool) -> None:
+        pass
+    @property
+    def user_agent(self) -> str:
+        """
+        :type: str
+        """
+    @user_agent.setter
+    def user_agent(self, arg1: str) -> None:
+        pass
+    @property
+    def verbosity(self) -> int:
+        """
+        :type: int
+        """
+    @verbosity.setter
+    def verbosity(self, arg1: int) -> None:
         pass
     pass
 
@@ -978,6 +1077,14 @@ class PackageInfo:
     def name(self, arg0: str) -> None:
         pass
     @property
+    def noarch(self) -> str:
+        """
+        :type: str
+        """
+    @noarch.setter
+    def noarch(self, arg0: str) -> None:
+        pass
+    @property
     def sha256(self) -> str:
         """
         :type: str
@@ -1165,9 +1272,9 @@ class QueryFormat:
 
 class Repo:
     @typing.overload
-    def __init__(self, arg0: Pool, arg1: PrefixData) -> None: ...
-    @typing.overload
     def __init__(self, arg0: Pool, arg1: str, arg2: str, arg3: str) -> None: ...
+    @typing.overload
+    def __init__(self, arg0: Pool, arg1: PrefixData) -> None: ...
     def add_extra_pkg_info(self, arg0: typing.Dict[str, ExtraPkgInfo]) -> None: ...
     def clear(self, arg0: bool) -> bool: ...
     def name(self) -> str: ...
@@ -1441,9 +1548,9 @@ class SubdirData:
 
 class Transaction:
     @typing.overload
-    def __init__(self, arg0: Pool, arg1: Solver, arg2: MultiPackageCache) -> None: ...
-    @typing.overload
     def __init__(self, arg0: Solver, arg1: MultiPackageCache) -> None: ...
+    @typing.overload
+    def __init__(self, arg0: Pool, arg1: Solver, arg2: MultiPackageCache) -> None: ...
     def execute(self, arg0: PrefixData) -> bool: ...
     def fetch_extract_packages(self) -> bool: ...
     def find_python_version(self) -> typing.Tuple[str, str]: ...

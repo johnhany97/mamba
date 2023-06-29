@@ -52,12 +52,16 @@ MAMBA_NOT_ALLOW_MISSING_PREFIX = 0
 MAMBA_NOT_ALLOW_NOT_ENV_PREFIX = 0
 MAMBA_NOT_EXPECT_EXISTING_PREFIX = 0
 
-if platform.system() == "Windows":
-    xtensor_hpp = "Library/include/xtensor/xtensor.hpp"
-    xsimd_hpp = "Library/include/xsimd/xsimd.hpp"
-else:
-    xtensor_hpp = "include/xtensor/xtensor.hpp"
-    xsimd_hpp = "include/xsimd/xsimd.hpp"
+
+def lib_prefix() -> Path:
+    """A potential prefix used for library in Conda environments."""
+    if platform.system() == "Windows":
+        return Path("Library")
+    return Path("")
+
+
+xtensor_hpp = lib_prefix() / "include/xtensor/xtensor.hpp"
+xsimd_hpp = lib_prefix() / "include/xsimd/xsimd.hpp"
 
 
 def get_umamba(cwd=os.getcwd()):
@@ -444,7 +448,6 @@ def first_cache_is_writable():
 
 
 def link_dir(new_dir, existing_dir, prefixes=None):
-
     for i in existing_dir.iterdir():
         if i.is_dir():
             subdir = new_dir / i.name

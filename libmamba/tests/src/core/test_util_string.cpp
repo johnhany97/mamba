@@ -60,6 +60,8 @@ namespace mamba
             CHECK(contains(":hello&", "ll"));
             CHECK_FALSE(contains(":hello&", "eo"));
             CHECK(contains("áäáœ©gþhëb®hüghœ©®xb", "ëb®"));
+            CHECK_FALSE(contains("", "ab"));
+            CHECK(contains("", ""));  // same as Python ``"" in ""``
         }
 
         TEST_CASE("any_starts_with")
@@ -382,6 +384,38 @@ namespace mamba
         TEST_CASE("concat")
         {
             CHECK_EQ(concat("aa", std::string("bb"), std::string_view("cc"), 'd'), "aabbccd");
+        }
+
+        TEST_CASE("get_common_parts")
+        {
+            CHECK_EQ(get_common_parts("", "", "/"), "");
+            CHECK_EQ(get_common_parts("", "test", "/"), "");
+            CHECK_EQ(get_common_parts("test", "test", "/"), "test");
+            CHECK_EQ(get_common_parts("test/chan", "test/chan", "/"), "test/chan");
+            CHECK_EQ(get_common_parts("st/ch", "test/chan", "/"), "");
+            CHECK_EQ(get_common_parts("st/chan", "test/chan", "/"), "chan");
+            CHECK_EQ(get_common_parts("st/chan/abc", "test/chan/abc", "/"), "chan/abc");
+            CHECK_EQ(get_common_parts("test/ch", "test/chan", "/"), "test");
+            CHECK_EQ(get_common_parts("test/an/abc", "test/chan/abc", "/"), "abc");
+            CHECK_EQ(get_common_parts("test/chan/label", "label/abcd/xyz", "/"), "label");
+            CHECK_EQ(get_common_parts("test/chan/label", "chan/label/abcd", "/"), "chan/label");
+            CHECK_EQ(get_common_parts("test/chan/label", "abcd/chan/label", "/"), "chan/label");
+            CHECK_EQ(get_common_parts("test", "abcd", "/"), "");
+            CHECK_EQ(get_common_parts("test", "abcd/xyz", "/"), "");
+            CHECK_EQ(get_common_parts("test/xyz", "abcd/xyz", "/"), "xyz");
+            CHECK_EQ(get_common_parts("test/xyz", "abcd/gef", "/"), "");
+            CHECK_EQ(get_common_parts("abcd/test", "abcd/xyz", "/"), "");
+
+            CHECK_EQ(get_common_parts("", "", "."), "");
+            CHECK_EQ(get_common_parts("", "test", "."), "");
+            CHECK_EQ(get_common_parts("test", "test", "."), "test");
+            CHECK_EQ(get_common_parts("test.chan", "test.chan", "."), "test.chan");
+            CHECK_EQ(get_common_parts("test.chan.label", "chan.label.abcd", "."), "chan.label");
+            CHECK_EQ(get_common_parts("test/chan/label", "chan/label/abcd", "."), "");
+            CHECK_EQ(get_common_parts("st/ch", "test/chan", "."), "");
+            CHECK_EQ(get_common_parts("st.ch", "test.chan", "."), "");
+
+            CHECK_EQ(get_common_parts("test..chan", "test..chan", ".."), "test..chan");
         }
     }
 

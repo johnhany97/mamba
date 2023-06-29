@@ -21,6 +21,7 @@
 
 #include "mamba/core/package_info.hpp"
 #include "mamba/core/pool.hpp"
+#include "mamba/core/satisfiability_error.hpp"
 
 #include "match_spec.hpp"
 
@@ -36,12 +37,11 @@ extern "C"
 namespace mamba::solv
 {
     class ObjQueue;
+    class ObjSolver;
 }
 
 namespace mamba
 {
-
-    const char* solver_ruleinfo_name(SolverRuleinfo rule);
 
     struct MSolverProblem
     {
@@ -65,8 +65,8 @@ namespace mamba
 
         MSolver(const MSolver&) = delete;
         MSolver& operator=(const MSolver&) = delete;
-        MSolver(MSolver&&) = delete;
-        MSolver& operator=(MSolver&&) = delete;
+        MSolver(MSolver&&);
+        MSolver& operator=(MSolver&&);
 
         void add_global_job(int job_flag);
         void add_jobs(const std::vector<std::string>& jobs, int job_flag);
@@ -82,6 +82,7 @@ namespace mamba
         [[nodiscard]] std::string problems_to_str() const;
         [[nodiscard]] std::vector<std::string> all_problems() const;
         [[nodiscard]] std::vector<MSolverProblem> all_problems_structured() const;
+        [[nodiscard]] ProblemsGraph problems_graph() const;
         [[nodiscard]] std::string all_problems_to_str() const;
         std::ostream& explain_problems(std::ostream& out) const;
         [[nodiscard]] std::string explain_problems() const;
@@ -97,14 +98,14 @@ namespace mamba
 
         operator const Solver*() const;
         operator Solver*();
+        auto solver() -> solv::ObjSolver&;
+        auto solver() const -> const solv::ObjSolver&;
 
         bool only_deps = false;
         bool no_deps = false;
         bool force_reinstall = false;
 
     private:
-
-        void add_reinstall_job(MatchSpec& ms, int job_flag);
 
         std::vector<std::pair<int, int>> m_flags;
         std::vector<MatchSpec> m_install_specs;
@@ -114,8 +115,11 @@ namespace mamba
         bool m_is_solved;
         // Order of m_pool and m_solver is critical since m_pool must outlive m_solver.
         MPool m_pool;
-        std::unique_ptr<::Solver, void (*)(::Solver*)> m_solver;
+        // Temporary Pimpl all libsolv to keep it private
+        std::unique_ptr<solv::ObjSolver> m_solver;
         std::unique_ptr<solv::ObjQueue> m_jobs;
+
+        void add_reinstall_job(MatchSpec& ms, int job_flag);
     };
 }  // namespace mamba
 

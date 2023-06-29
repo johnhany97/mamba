@@ -9,6 +9,7 @@
 #include "mamba/api/channel_loader.hpp"
 #include "mamba/api/configuration.hpp"
 #include "mamba/api/repoquery.hpp"
+#include "mamba/core/channel.hpp"
 #include "mamba/core/package_cache.hpp"
 #include "mamba/core/prefix_data.hpp"
 #include "mamba/core/repo.hpp"
@@ -16,18 +17,23 @@
 
 namespace mamba
 {
-    void repoquery(QueryType type, QueryResultFormat format, bool use_local, const std::string& query)
+    void repoquery(
+        Configuration& config,
+        QueryType type,
+        QueryResultFormat format,
+        bool use_local,
+        const std::string& query
+    )
     {
         auto& ctx = Context::instance();
-        auto& config = Configuration::instance();
 
-        config.at("show_banner").set_value(false);
         config.at("use_target_prefix_fallback").set_value(true);
         config.at("target_prefix_checks")
             .set_value(MAMBA_ALLOW_EXISTING_PREFIX | MAMBA_ALLOW_MISSING_PREFIX);
         config.load();
 
-        MPool pool;
+        ChannelContext channel_context;
+        MPool pool{ channel_context };
 
         // bool installed = (type == QueryType::kDepends) || (type == QueryType::kWhoneeds);
         MultiPackageCache package_caches(ctx.pkgs_dirs);
@@ -37,7 +43,7 @@ namespace mamba
             {
                 Console::stream() << "Using local repodata..." << std::endl;
             }
-            auto exp_prefix_data = PrefixData::create(ctx.prefix_params.target_prefix);
+            auto exp_prefix_data = PrefixData::create(ctx.prefix_params.target_prefix, channel_context);
             if (!exp_prefix_data)
             {
                 // TODO: propagate tl::expected mechanism
@@ -69,7 +75,7 @@ namespace mamba
         {
             if (ctx.output_params.json)
             {
-                std::cout << q.find(query).groupby("name").json().dump(4);
+                std::cout << q.find(query).groupby("name").json(pool.channel_context()).dump(4);
             }
             else
             {
@@ -78,7 +84,7 @@ namespace mamba
                 switch (format)
                 {
                     case QueryResultFormat::kJSON:
-                        std::cout << res.json().dump(4);
+                        std::cout << res.json(pool.channel_context()).dump(4);
                         break;
                     case QueryResultFormat::kPRETTY:
                         res.pretty(std::cout);
@@ -106,7 +112,7 @@ namespace mamba
                     res.tree(std::cout);
                     break;
                 case QueryResultFormat::kJSON:
-                    std::cout << res.json().dump(4);
+                    std::cout << res.json(pool.channel_context()).dump(4);
                     break;
                 case QueryResultFormat::kTABLE:
                 case QueryResultFormat::kRECURSIVETABLE:
@@ -132,7 +138,7 @@ namespace mamba
                     res.tree(std::cout);
                     break;
                 case QueryResultFormat::kJSON:
-                    std::cout << res.json().dump(4);
+                    std::cout << res.json(pool.channel_context()).dump(4);
                     break;
                 case QueryResultFormat::kTABLE:
                 case QueryResultFormat::kRECURSIVETABLE:
@@ -148,7 +154,5 @@ namespace mamba
                           << std::endl;
             }
         }
-
-        config.operation_teardown();
     }
 }

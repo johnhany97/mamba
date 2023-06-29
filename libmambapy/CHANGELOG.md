@@ -1,3 +1,51 @@
+libmambapy 1.4.5 (June 27, 2023)
+================================
+
+Enhancements:
+
+- No singleton: ChannelContext, ChannelBuilder and channel cache by @Klaim in https://github.com/mamba-org/mamba/pull/2455
+- Move problem graph creation to MSolver by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2515
+- Common CMake presets by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2532
+- No singleton: configuration by @Klaim in https://github.com/mamba-org/mamba/pull/2541
+- Remove banner by @jonashaag in https://github.com/mamba-org/mamba/pull/2298
+- LockFile behavior on file-locking is now almost independent from Context by @Klaim in https://github.com/mamba-org/mamba/pull/2608
+
+Bug fixes:
+
+- Fix stubgens by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2556
+
+CI fixes and doc:
+
+- update the umamba GHA link by @ocefpaf in https://github.com/mamba-org/mamba/pull/2542
+- Extend troubleshooting docs by @jonashaag in https://github.com/mamba-org/mamba/pull/2569
+- Update pre-commit hooks by @jonashaag in https://github.com/mamba-org/mamba/pull/2586
+- Move GHA to setup-micromamba by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2545
+- Switch linters to setup-micromamba by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2600
+- Switch to setup-micromamba by @pavelzw in https://github.com/mamba-org/mamba/pull/2610
+- Fix broken ref directives in docs by @mfisher87 in https://github.com/mamba-org/mamba/pull/2620
+
+libmambapy 1.4.4 (May 16, 2023)
+===============================
+
+Bug fixes:
+
+- Support future deprecated API for Context by @Hind-M in https://github.com/mamba-org/mamba/pull/2494
+
+libmambapy 1.4.3 (May 15, 2023)
+===============================
+
+Enhancements:
+
+- Remove dead code / attribute by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2454
+- Context structuring by @Hind-M in https://github.com/mamba-org/mamba/pull/2432
+- Store PackageInfo::track\_features as a vector by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2478
+- Resume Context structuring by @Hind-M in https://github.com/mamba-org/mamba/pull/2460
+- Use libsolv wrappers in MPool and MRepo by @AntoinePrv in https://github.com/mamba-org/mamba/pull/2453
+
+CI fixes and doc:
+
+- Extend issue template by @jonashaag in https://github.com/mamba-org/mamba/pull/2310
+
 libmambapy 1.4.2 (April 06, 2023)
 =================================
 

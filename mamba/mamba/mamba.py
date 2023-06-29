@@ -55,7 +55,6 @@ from mamba.utils import (
     get_installed_jsonfile,
     init_api_context,
     load_channels,
-    load_conda_installed,
     print_activate,
     to_txn,
 )
@@ -70,30 +69,6 @@ else:
 
 log = getLogger(__name__)
 stderrlog = getLogger("conda.stderr")
-
-banner = f"""
-                  __    __    __    __
-                 /  \\  /  \\  /  \\  /  \\
-                /    \\/    \\/    \\/    \\
-███████████████/  /██/  /██/  /██/  /████████████████████████
-              /  / \\   / \\   / \\   / \\  \\____
-             /  /   \\_/   \\_/   \\_/   \\    o \\__,
-            / _/                       \\_____/  `
-            |/
-        ███╗   ███╗ █████╗ ███╗   ███╗██████╗  █████╗
-        ████╗ ████║██╔══██╗████╗ ████║██╔══██╗██╔══██╗
-        ██╔████╔██║███████║██╔████╔██║██████╔╝███████║
-        ██║╚██╔╝██║██╔══██║██║╚██╔╝██║██╔══██╗██╔══██║
-        ██║ ╚═╝ ██║██║  ██║██║ ╚═╝ ██║██████╔╝██║  ██║
-        ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═════╝ ╚═╝  ╚═╝
-
-        mamba ({mamba.__version__}) supported by @QuantStack
-
-        GitHub:  https://github.com/mamba-org/mamba
-        Twitter: https://twitter.com/QuantStack
-
-█████████████████████████████████████████████████████████████
-"""
 
 
 class MambaException(Exception):
@@ -199,13 +174,9 @@ def remove(args, parser):
         repos = []
 
         # add installed
-        if use_mamba_experimental:
-            prefix_data = api.PrefixData(context.target_prefix)
-            repo = api.Repo(pool, prefix_data)
-            repos.append(repo)
-        else:
-            repo = load_conda_installed(pool, installed_json_f, installed_pkg_recs)
-            repos.append(repo)
+        prefix_data = api.PrefixData(context.target_prefix)
+        repo = api.Repo(pool, prefix_data)
+        repos.append(repo)
 
         solver = api.Solver(pool, solver_options)
 
@@ -475,15 +446,11 @@ def install(args, parser, command="install"):
 
     repos = []
 
-    prefix_data = api.PrefixData(context.target_prefix)
-
     # add installed
-    if use_mamba_experimental:
-        repo = api.Repo(pool, prefix_data)
-        repos.append(repo)
-    else:
-        repo = load_conda_installed(pool, installed_json_f, installed_pkg_recs)
-        repos.append(repo)
+    prefix_data = api.PrefixData(context.target_prefix)
+    prefix_data.add_packages(api.get_virtual_packages())
+    repo = api.Repo(pool, prefix_data)
+    repos.append(repo)
 
     if newenv and not specs:
         # creating an empty environment with e.g. "mamba create -n my_env"
@@ -719,7 +686,6 @@ def clean(args, parser):
                 api.Context().prefix_params.root_prefix
             )
 
-        api.Configuration().show_banner = False
         api.clean(api.MAMBA_CLEAN_LOCKS)
         if root_prefix:
             os.environ["MAMBA_ROOT_PREFIX"] = root_prefix
@@ -893,10 +859,8 @@ def _wrapped_main(*args, **kwargs):
         args.remove("--mamba-experimental")
 
     if "--no-banner" in args:
+        # Backwards compat (banner was removed)
         args.remove("--no-banner")
-        found_no_banner = True
-    else:
-        found_no_banner = False
 
     p = generate_parser()
     configure_clean_locks(p._subparsers._group_actions[0])
@@ -905,14 +869,6 @@ def _wrapped_main(*args, **kwargs):
 
     context.__init__(argparse_args=parsed_args)
     context.__initialized__ = True
-
-    if (
-        not found_no_banner
-        and os.isatty(sys.stdout.fileno())
-        and not context.quiet
-        and not ("MAMBA_NO_BANNER" in os.environ or parsed_args.cmd in ("list", "run"))
-    ):
-        print(banner, file=sys.stderr)
 
     init_loggers(context)
 
@@ -942,7 +898,7 @@ def main(*args, **kwargs):
     if not args:
         args = sys.argv
 
-    if len(args) == 2 and args[1] == "--version":
+    if len(args) == 2 and args[1] in ("--version", "-V"):
         from mamba._version import __version__
 
         print("mamba {}".format(__version__))

@@ -18,7 +18,10 @@
 #include "solv-cpp/repo.hpp"
 #include "solv-cpp/solvable.hpp"
 
-using Pool = struct s_Pool;
+extern "C"
+{
+    using Pool = struct s_Pool;
+}
 
 namespace mamba::solv
 {
@@ -32,6 +35,8 @@ namespace mamba::solv
     class ObjPool
     {
     public:
+
+        using raw_str_view = const char*;
 
         ObjPool();
         ~ObjPool();
@@ -94,6 +99,12 @@ namespace mamba::solv
          * Handling of complex dependencies in libsolv is quite complex and not used in mamba.
          */
         auto add_dependency(StringId name_id, RelationFlag flag, StringId version_id) -> DependencyId;
+
+        /**
+         * Parse a dependency from string and add it to the pool.
+         */
+        auto add_conda_dependency(raw_str_view dep) -> DependencyId;
+        auto add_conda_dependency(const std::string& dep) -> DependencyId;
 
         /** Get the registered name of a dependency. */
         auto get_dependency_name(DependencyId id) const -> std::string_view;
@@ -226,6 +237,18 @@ namespace mamba::solv
         template <typename UnaryFunc>
         void for_each_solvable(UnaryFunc&& func);
 
+        /** Execute function for each solvable id in the installed repository (if it exists). */
+        template <typename UnaryFunc>
+        void for_each_installed_solvable_id(UnaryFunc&& func) const;
+
+        /** Execute function for each solvable id in the installed repository (if it exists). */
+        template <typename UnaryFunc>
+        void for_each_installed_solvable(UnaryFunc&& func) const;
+
+        /** Execute function for each solvable id in the installed repository (if it exists). */
+        template <typename UnaryFunc>
+        void for_each_installed_solvable(UnaryFunc&& func);
+
         /** Set the callback to handle libsolv messages.
          *
          * The callback takes a ``Pool*``, the type of message as ``int``, and the message
@@ -253,6 +276,7 @@ namespace mamba::solv
  *******************************/
 
 #include <stdexcept>
+#include <type_traits>
 
 #include <solv/pool.h>
 
@@ -267,7 +291,17 @@ namespace mamba::solv
         RepoId repo_id = 0;
         FOR_REPOS(repo_id, repo)
         {
-            func(repo_id);
+            if constexpr (std::is_same_v<decltype(func(repo_id)), LoopControl>)
+            {
+                if (func(repo_id) == LoopControl::Break)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                func(repo_id);
+            }
         }
     }
 
@@ -297,7 +331,17 @@ namespace mamba::solv
         ::Id offset = 0;  // Not really an Id
         FOR_PROVIDES(id, offset, dep)
         {
-            func(id);
+            if constexpr (std::is_same_v<decltype(func(id)), LoopControl>)
+            {
+                if (func(id) == LoopControl::Break)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                func(id);
+            }
         }
     }
 
@@ -328,7 +372,17 @@ namespace mamba::solv
         SolvableId id = 0;
         FOR_POOL_SOLVABLES(id)
         {
-            func(id);
+            if constexpr (std::is_same_v<decltype(func(id)), LoopControl>)
+            {
+                if (func(id) == LoopControl::Break)
+                {
+                    break;
+                }
+            }
+            else
+            {
+                func(id);
+            }
         }
     }
 
@@ -344,6 +398,33 @@ namespace mamba::solv
     {
         // Safe optional unchecked because we iterate over available values
         return for_each_solvable_id([this, func](SolvableId id) { func(get_solvable(id).value()); });
+    }
+
+    template <typename UnaryFunc>
+    void ObjPool::for_each_installed_solvable_id(UnaryFunc&& func) const
+    {
+        if (auto installed = installed_repo(); installed.has_value())
+        {
+            installed->for_each_solvable_id(std::forward<UnaryFunc>(func));
+        }
+    }
+
+    template <typename UnaryFunc>
+    void ObjPool::for_each_installed_solvable(UnaryFunc&& func) const
+    {
+        if (auto installed = installed_repo(); installed.has_value())
+        {
+            installed->for_each_solvable(std::forward<UnaryFunc>(func));
+        }
+    }
+
+    template <typename UnaryFunc>
+    void ObjPool::for_each_installed_solvable(UnaryFunc&& func)
+    {
+        if (auto installed = installed_repo(); installed.has_value())
+        {
+            installed->for_each_solvable(std::forward<UnaryFunc>(func));
+        }
     }
 
     template <typename Func>
